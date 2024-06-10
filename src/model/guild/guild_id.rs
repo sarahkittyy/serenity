@@ -5,21 +5,9 @@ use futures::stream::Stream;
 
 #[cfg(feature = "model")]
 use crate::builder::{
-    AddMember,
-    Builder,
-    CreateChannel,
-    CreateCommand,
-    CreateScheduledEvent,
-    CreateSticker,
-    EditAutoModRule,
-    EditCommandPermissions,
-    EditGuild,
-    EditGuildWelcomeScreen,
-    EditGuildWidget,
-    EditMember,
-    EditRole,
-    EditScheduledEvent,
-    EditSticker,
+    AddMember, Builder, CreateChannel, CreateCommand, CreateScheduledEvent, CreateSticker,
+    EditAutoModRule, EditCommandPermissions, EditGuild, EditGuildWelcomeScreen, EditGuildWidget,
+    EditMember, EditRole, EditScheduledEvent, EditSticker,
 };
 #[cfg(all(feature = "cache", feature = "model"))]
 use crate::cache::{Cache, GuildRef};
@@ -273,10 +261,8 @@ impl GuildId {
             delete_message_seconds: u32,
         }
 
-        let map = BulkBan {
-            user_ids: SerializeIter::new(users.into_iter()),
-            delete_message_seconds,
-        };
+        let map =
+            BulkBan { user_ids: SerializeIter::new(users.into_iter()), delete_message_seconds };
 
         http.bulk_ban_users(self, &map, reason).await
     }
@@ -1113,7 +1099,18 @@ impl GuildId {
             }
         }
 
-        cache_http.http().get_member(self, user_id).await
+        let member = cache_http.http().get_member(self, user_id).await?;
+
+        #[cfg(feature = "cache")]
+        {
+            if let Some(cache) = cache_http.cache() {
+                if let Some(mut guild) = cache.guilds.get_mut(&member.guild_id) {
+                    guild.members.insert(user_id, member.clone());
+                }
+            }
+        }
+
+        Ok(member)
     }
 
     /// Gets a list of the guild's members.
@@ -1772,13 +1769,7 @@ pub struct MembersIter<H: AsRef<Http>> {
 #[cfg(feature = "model")]
 impl<H: AsRef<Http>> MembersIter<H> {
     fn new(guild_id: GuildId, http: H) -> MembersIter<H> {
-        MembersIter {
-            guild_id,
-            http,
-            buffer: Vec::new(),
-            after: None,
-            tried_fetch: false,
-        }
+        MembersIter { guild_id, http, buffer: Vec::new(), after: None, tried_fetch: false }
     }
 
     /// Fills the `self.buffer` cache of Members.
